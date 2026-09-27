@@ -1,0 +1,521 @@
+{
+  "name": "Sensores CCM - Heineken",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b390879a-c5a6-469e-a4ef-b10b8b8a572d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ba5afe6b-2814-4fc9-bd92-ae184126e7e9",
+              "name": "tuya_client_id",
+              "value": "Your client id",
+              "type": "string"
+            },
+            {
+              "id": "19f6e316-e06f-4c7a-bf48-c6f6318ce3b0",
+              "name": "tuya_secret",
+              "value": "Your tuya secret",
+              "type": "string"
+            },
+            {
+              "id": "cb5acbaf-f5dc-495e-914c-0f9d2337a346",
+              "name": "=sensores",
+              "value": "=[\n  {\n    \"device_id\": \"eb2697ca8f029979d4mczb\",\n    \"sensor_num\": \"1\",\n    \"ubicacion\": \"ccm_li04\"\n  },\n  {\n    \"device_id\": \"eb510c6191ee71977egfwa\",\n    \"sensor_num\": \"2\",\n    \"ubicacion\": \"ccm_li12\"\n  },\n  {\n    \"device_id\": \"eb9f23e77b8b37193bjx5c\",\n    \"sensor_num\": \"3\",\n    \"ubicacion\": \"ccm_li12\"\n  },\n  {\n    \"device_id\": \"eb14c047ea696e0007pfiq\",\n    \"sensor_num\": \"4\",\n    \"ubicacion\": \"ccm_li11\"\n  },\n  {\n    \"device_id\": \"eba7fd4bf0ef00a5a1gusa\",\n    \"sensor_num\": \"5\",\n    \"ubicacion\": \"ccm_li06\"\n  },\n  {\n    \"device_id\": \"ebbe81bf482d498fa1gtet\",\n    \"sensor_num\": \"6\",\n    \"ubicacion\": \"ccm_li08_antiguo\"\n  },\n  {\n    \"device_id\": \"eb91e4d5f67b965b1eevdz\",\n    \"sensor_num\": \"7\",\n    \"ubicacion\": \"ccm_li08_nuevo\"\n  },\n   {\n    \"device_id\": \"eba5055eec4b2780f1t95r\",\n    \"sensor_num\": \"8\",\n    \"ubicacion\": \"ccm_li13\"\n  },\n  {\n    \"device_id\": \"eb24cc91f9bbf64e57b1lb\",\n    \"sensor_num\": \"9\",\n    \"ubicacion\": \"ccm_li14\"\n  }\n]",
+              "type": "array"
+            },
+            {
+              "id": "364be141-826c-461f-abea-fb07ee8568ed",
+              "name": "=grafana_endpoint",
+              "value": "Your grafana endpoint(url)",
+              "type": "string"
+            },
+            {
+              "id": "02a454eb-4720-45fb-b896-eda06c2dca05",
+              "name": "grafana_user",
+              "value": "Your grafana user",
+              "type": "string"
+            },
+            {
+              "id": "351c1096-82c7-4692-9cb9-e34881b88396",
+              "name": "grafana_token",
+              "value": "Your grafana token",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        208,
+        0
+      ],
+      "id": "071e09ec-b872-4d3f-9c3a-28da8016a382",
+      "name": "Declaración de variables de tuya y grafana"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraemos tu ID del nodo anterior\nconst clientId = $input.item.json.tuya_client_id;\n\n// Obtenemos la hora actual en milisegundos (Tuya lo exige)\nconst t = Date.now().toString();\n\n// Preparamos los textos exactos para la firma\nconst contentHash = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\";\nconst stringToSign = \"GET\\n\" + contentHash + \"\\n\\n/v1.0/token?grant_type=1\";\n\n// Guardamos los resultados para el siguiente paso\n$input.item.json.tuya_t = t;\n$input.item.json.texto_para_firmar = clientId + t + stringToSign;\n\nreturn $input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "a02163fd-d4ce-40c2-af41-cc2f09044c08",
+      "name": "Preparación de textos y llave que tuya requiere"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "value": "={{ $json.texto_para_firmar }}",
+        "dataPropertyName": "tuya_sign"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        608,
+        0
+      ],
+      "id": "492491e0-99ec-45fc-8597-abcf46d416d1",
+      "name": "Generación De Firma Criptográfica",
+      "credentials": {
+        "crypto": {
+          "id": "Your ID",
+          "name": "Tuya - account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://openapi.tuyaus.com/v1.0/token?grant_type=1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $json.tuya_client_id }}"
+            },
+            {
+              "name": "sign",
+              "value": "={{ $json.tuya_sign.toUpperCase() }}"
+            },
+            {
+              "name": "t",
+              "value": "={{ $json.tuya_t }}"
+            },
+            {
+              "name": "sign_method",
+              "value": "HMAC-SHA256"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        816,
+        0
+      ],
+      "id": "f169a128-156d-4971-a1f2-6cb00c1f1d1d",
+      "name": "Tocar la puerta de Tuya"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 1. Extraemos las variables fijas del primer nodo (estas no cambian por sensor)\nconst tuya_client_id = $('Declaración de variables de tuya y grafana').first().json.tuya_client_id;\nconst tuya_secret = $('Declaración de variables de tuya y grafana').first().json.tuya_secret;\n\n// 2. Extraemos los datos dinámicos del sensor EN TURNO (que nos entrega el Loop)\n// Como estamos dentro del ciclo, usamos $json para leer el paquete actual\nconst tuya_device_id = $json.device_id;\nconst token_tuya = $json.token_tuya;\n\n// 3. Obtenemos el timestamp actual en milisegundos (Tuya lo requiere para cada firma)\nconst timestamp = new Date().getTime().toString();\n\n// 4. Construimos la ruta de la API específica para ESTE sensor\nconst endpoint = `/v1.0/iot-03/devices/${tuya_device_id}/status`;\n\n// 5. Preparamos la cadena a firmar (String to Sign)\nconst method = \"GET\";\nconst content_sha256 = \"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"; // Hash SHA256 de un cuerpo vacío\nconst headers = \"\";\nconst stringToSign = [method, content_sha256, headers, endpoint].join(\"\\n\");\n\n// 6. Construimos el mensaje completo para HMAC\nconst message = tuya_client_id + token_tuya + timestamp + stringToSign;\n\n// Retornamos las variables listas para el nodo Crypto\nreturn {\n  tuya_client_id: tuya_client_id,\n  tuya_secret: tuya_secret,\n  token_tuya: token_tuya,\n  timestamp: timestamp,\n  message_to_sign: message,\n  endpoint: endpoint,\n  sensor_num: $json.sensor_num,\n  ubicacion: $json.ubicacion\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "id": "29abb2fe-9261-460a-9727-a35ce6deb9c4",
+      "name": "Preparar la lectura del sensor"
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "value": "={{ $json.message_to_sign }}",
+        "dataPropertyName": "tuya_sign_2"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        0
+      ],
+      "id": "9bc2ed07-9773-4a1d-b75c-ca68f65640e8",
+      "name": "Crypto",
+      "credentials": {
+        "crypto": {
+          "id": "Your ID",
+          "name": "Tuya - account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://openapi.tuyaus.com{{ $json.endpoint }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "client_id",
+              "value": "={{ $json.tuya_client_id }}"
+            },
+            {
+              "name": "access_token",
+              "value": "={{ $json.token_tuya }}"
+            },
+            {
+              "name": "sign",
+              "value": "={{ $json.tuya_sign_2.toUpperCase() }}"
+            },
+            {
+              "name": "sign_method",
+              "value": "HMAC-SHA256"
+            },
+            {
+              "name": "t",
+              "value": "={{ $json.timestamp }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1824,
+        0
+      ],
+      "id": "0eb32631-7779-44d0-aea1-96fdda0b7ab5",
+      "name": "Leer los datos del sensor"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// 1. Obtenemos el arreglo de resultados crudos del paquete actual\nconst datos_crudos = $json.result;\n\n// 2. Buscamos los valores específicos en el arreglo por su código de variable\nconst temp_cruda = datos_crudos.find(item => item.code === \"va_temperature\").value;\nconst hum_cruda = datos_crudos.find(item => item.code === \"va_humidity\").value;\nconst bat_cruda = datos_crudos.find(item => item.code === \"battery_percentage\").value;\n\n// 3. Escalamos la temperatura (Tuya entrega 240 para 24.0°C)\nconst temperatura_celsius = temp_cruda / 10;\n\n// 4. Rescatamos las variables de contexto del sensor EN TURNO usando la memoria del nodo anterior\nconst sensor_num = $('Preparar la lectura del sensor').item.json.sensor_num;\nconst ubicacion = $('Preparar la lectura del sensor').item.json.ubicacion;\n\n// 5. Retornamos el paquete limpio y ordenado para inyectarlo a Grafana\nreturn {\n  temperatura_celsius: temperatura_celsius,\n  humedad_relativa: hum_cruda,\n  nivel_bateria: bat_cruda,\n  sensor_num: sensor_num,\n  ubicacion: ubicacion\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        0
+      ],
+      "id": "000fec13-f80c-477d-bf51-ca12e3c231e6",
+      "name": "Filtrado y escalado de variables"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://prometheus-prod-56-prod-us-east-2.grafana.net/api/v1/push/influx/write",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "=temperatura_celsius,sensor={{ $json.sensor_num }},ubicacion={{ $json.ubicacion }} value={{ $json.temperatura_celsius }}\nhumedad_relativa,sensor={{ $json.sensor_num }},ubicacion={{ $json.ubicacion }} value={{ $json.humedad_relativa }}\nnivel_bateria,sensor={{ $json.sensor_num }},ubicacion={{ $json.ubicacion }} value={{ $json.nivel_bateria }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2240,
+        0
+      ],
+      "id": "ee07c84a-e240-4ca5-811c-53c60427c03d",
+      "name": "Inyectar datos a Grafana",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "Your ID",
+          "name": "Prometheus - Grafana - account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Declaración de las variables y preparación de los textos para comunicarnos con Tuya.",
+        "height": 336,
+        "width": 384,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        160,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "eaf8656c-c3fe-4975-a4d6-e82bbdaeba6a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Generación de la firma para posteriormente tocar la puerta con tuya.",
+        "height": 336,
+        "width": 400,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        560,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "3ff40e46-c87d-479a-9a8e-6c4b6778b97e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Preparamos el entorno para leer los valores del sensor, obtenemos las llaves necesarias y leemos los datos.",
+        "height": 336,
+        "width": 564,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1408,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "12ece641-8bda-484e-8761-aed044b249b6",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Escalamos las mediciones de temperatura, humedad y bateria, para despues con las llaves generadas inyectar estos datos en Grafana.",
+        "height": 336,
+        "width": 400,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1984,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "40610ba9-37e3-485d-a1e1-58618fe127e4",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1232,
+        -16
+      ],
+      "id": "0c6aaa38-7a5c-4021-bea4-b7915392aefb",
+      "name": "Leer un sensor a la vez"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Extraemos el token fresco que acaba de generar Tuya\nconst token = $input.first().json.result.access_token;\n\n// 2. Extraemos la matriz de sensores que declaramos en el primer nodo\nconst sensores = $('Declaración de variables de tuya y grafana').first().json.sensores;\n\n// 3. Generamos un \"paquete\" (item) por cada sensor para que el ciclo los procese uno por uno\nreturn sensores.map(sensor => {\n  return {\n    json: {\n      device_id: sensor.device_id,\n      sensor_num: sensor.sensor_num,\n      ubicacion: sensor.ubicacion,\n      token_tuya: token\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "c6536c67-7ef7-4f24-a12f-bbb75e74f92e",
+      "name": "Empaquetar Sensores"
+    },
+    {
+      "parameters": {
+        "content": "## Empaquetamos los sensores y creamos un ciclo para leer cada sensor.",
+        "height": 336,
+        "width": 400,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        976,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "24107c59-c5f2-4f54-8a0d-caa908fb411c",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Declaración de variables de tuya y grafana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Declaración de variables de tuya y grafana": {
+      "main": [
+        [
+          {
+            "node": "Preparación de textos y llave que tuya requiere",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparación de textos y llave que tuya requiere": {
+      "main": [
+        [
+          {
+            "node": "Generación De Firma Criptográfica",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generación De Firma Criptográfica": {
+      "main": [
+        [
+          {
+            "node": "Tocar la puerta de Tuya",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tocar la puerta de Tuya": {
+      "main": [
+        [
+          {
+            "node": "Empaquetar Sensores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar la lectura del sensor": {
+      "main": [
+        [
+          {
+            "node": "Crypto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crypto": {
+      "main": [
+        [
+          {
+            "node": "Leer los datos del sensor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer los datos del sensor": {
+      "main": [
+        [
+          {
+            "node": "Filtrado y escalado de variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrado y escalado de variables": {
+      "main": [
+        [
+          {
+            "node": "Inyectar datos a Grafana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inyectar datos a Grafana": {
+      "main": [
+        [
+          {
+            "node": "Leer un sensor a la vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer un sensor a la vez": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Preparar la lectura del sensor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Empaquetar Sensores": {
+      "main": [
+        [
+          {
+            "node": "Leer un sensor a la vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "Z9qF4IEHzYhWtZ6l",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "bb3b0000-7aa1-4e69-96fb-3d8f0e973525",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a9da5318afef813a9d20f718fdcebd2cbd81ea5efa619b9db54a884171030e41"
+  },
+  "nodeGroups": [],
+  "id": "Kv6THHzb7Y39r9Jo",
+  "tags": []
+}
